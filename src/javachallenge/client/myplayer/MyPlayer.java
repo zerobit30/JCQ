@@ -55,7 +55,7 @@ public class MyPlayer extends Player {
             {Direction.SOUTHWEST,Direction.SOUTH},
             {Direction.SOUTHEAST,Direction.SOUTH},
             {Direction.NORTH,Direction.NORTHEAST},
-            {Direction.SOUTH,Direction.NORTHWEST}
+            {Direction.NORTH,Direction.NORTHWEST}
         };
         Direction[][] dirToGoNormal = {
             {Direction.NORTHWEST,Direction.SOUTHEAST},
@@ -125,7 +125,7 @@ public class MyPlayer extends Player {
         
         private boolean willPostponeSpawn(Point from,Point p){
             if (p.equals(getWorld().getSpawnLocation()) && isNeibour(from,p))
-                if (cycle%3 == 0 && cycle<18)
+                if (cycle%3 == 0 && cycle<=18)
                     return true;
             return false;
         }
@@ -250,6 +250,19 @@ public class MyPlayer extends Player {
             
         }
         
+        /*private Point getExceptionalTarget(int id,Point p){
+            if (p.equals(firstBlock[0]))
+                if (id == 1)
+                    return p.applyDirection(Direction.SOUTH);
+                else 
+                    return p.applyDirection(Direction.SOUTHWEST)
+                            
+                            
+                    
+                    
+                    
+        }*/
+        
         private void updateBlockTargets(){
             Point target;
             
@@ -258,12 +271,22 @@ public class MyPlayer extends Player {
             for (int i=0;i<=3;i++){
                 target = blockTarget[i];
                 while (target != null && !unexplored(target)){
+                    //log(""+i+": "+target);
                     if (target.equals(firstBlock[lastBlock[i]])){
                         target = null;
                         break;
                     }
                     if (outOfMap(target.applyDirection(dirToGoNormal[i][currentLine[i]%2]))){
-                        target = target.applyDirection(dirToGoOnBorder[i][currentLine[i]%2]);
+                        if (outOfMap(target.applyDirection(dirToGoOnBorder[i][currentLine[i]%2]))){
+                            /*Point temp = getExceptionalTarget(i,target);
+                            if (outOfMap(temp))
+                                target = null;
+                            else
+                                target = temp;
+                                */
+                            target = null;
+                        }else
+                            target = target.applyDirection(dirToGoOnBorder[i][currentLine[i]%2]);
                         currentLine[i]++;
                     }else
                         target = target.applyDirection(dirToGoNormal[i][currentLine[i]%2]);
@@ -331,7 +354,7 @@ public class MyPlayer extends Player {
         
         
         private void move(Agent agent,Direction dir){
-            if (agent.getId()!=1)
+            
             agent.doMove(dir);
         }
         
@@ -369,11 +392,15 @@ public class MyPlayer extends Player {
                 
                 
                 updateMap();
+                log("finished updating map");
                 if (cycle%1==0)
                     printMap();
                 handleFireTargets();
+                log("finished handling fire targets");
                 updateBlockTargets();
+                log("finished updating block targets");
                 setMoves();
+                log("finished setting moves");
                 
                 
                 
