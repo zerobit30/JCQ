@@ -64,7 +64,7 @@ public class MyPlayer extends Player {
             {Direction.NORTHEAST,Direction.SOUTHWEST}
         };
         int[] currentLine = new int[5];
-        Point[] firstBlock;
+        Point[] firstBlock =  new Point[5];
         int[] lastBlock = {
             2,
             3,
@@ -91,6 +91,7 @@ public class MyPlayer extends Player {
             System.out.println("Spawn location: "+getWorld().getSpawnLocation());
             map = new BlockType[getWorld().getMapHeight()][getWorld().getMapWidth()];
             map[getWorld().getSpawnLocation().getX()][getWorld().getSpawnLocation().getY()] = BlockType.GROUND; //aya?
+            
             
             firstBlock[0] = new Point(0,getWorld().getMapWidth()-1);
             firstBlock[1] = new Point(0,0);
@@ -181,7 +182,7 @@ public class MyPlayer extends Player {
                         c = "X";
                     for (Agent agent : getAgents())
                         if (agent.getLocation().equals(new Point(i,j)))
-                            c = "O";
+                            c = ""+agent.getId();
                     logn(c);
                 }
                 log("");            
@@ -270,10 +271,16 @@ public class MyPlayer extends Player {
             
             //in baraye center
             //hala kholase ye joori ...
+            target = blockTarget[4];
+            if (target != null && !unexplored(target))
+                target = null; //alaki felan
+            blockTarget[4] = target;
             
             //baraye 5
-            if (!unexplored(blockTarget[5]))
-                blockTarget[5] = null;
+           target = blockTarget[5];
+            if (target != null && !unexplored(target))
+                target = null; 
+            blockTarget[5] = target;
             
             //hala baraye har bi targeti 
             for (Integer id : getAgentIds()){
