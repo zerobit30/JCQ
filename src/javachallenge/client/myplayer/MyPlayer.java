@@ -90,14 +90,14 @@ public class MyPlayer extends Player {
             System.out.println("Map width: "+getWorld().getMapWidth());
             System.out.println("Spawn location: "+getWorld().getSpawnLocation());
             map = new BlockType[getWorld().getMapHeight()][getWorld().getMapWidth()];
-            map[getWorld().getSpawnLocation().getX()][getWorld().getSpawnLocation().getY()] = BlockType.GROUND; //aya?
+            map[getWorld().getSpawnLocation().getY()][getWorld().getSpawnLocation().getX()] = BlockType.GROUND; //aya?
             
             
-            firstBlock[0] = new Point(0,getWorld().getMapWidth()-1);
+            firstBlock[0] = new Point(getWorld().getMapWidth()-1,0);
             firstBlock[1] = new Point(0,0);
-            firstBlock[2] = new Point(getWorld().getMapHeight()-1,0);
-            firstBlock[3] = new Point(getWorld().getMapHeight()-1,getWorld().getMapWidth()-1);
-            firstBlock[4] = new Point(getWorld().getMapHeight()/2,getWorld().getMapWidth()/2);
+            firstBlock[2] = new Point(0,getWorld().getMapHeight()-1);
+            firstBlock[3] = new Point(getWorld().getMapWidth()-1,getWorld().getMapHeight()-1);
+            firstBlock[4] = new Point(getWorld().getMapWidth()/2,getWorld().getMapHeight()/2);
             
             for (int i=0;i<5;i++)
                 blockTarget[i] = firstBlock[i];
@@ -106,21 +106,21 @@ public class MyPlayer extends Player {
         }
         
         private boolean unexplored(Point p){
-            return map[p.getX()][p.getY()] == null;
+            return map[p.getY()][p.getX()] == null;
         }
         
-        private boolean unexplored(int y,int x){
+        private boolean unexplored(int x,int y){
             return map[y][x] == null;
         }
         
         private boolean outOfMap(Point p){
-            return p.getX()<0 || p.getY()<0 ||
-                    p.getX()>=getWorld().getMapHeight() ||
-                    p.getY()>=getWorld().getMapWidth();
+            return p.getY()<0 || p.getX()<0 ||
+                    p.getY()>=getWorld().getMapHeight() ||
+                    p.getX()>=getWorld().getMapWidth();
         }
         
         private boolean isGround(Point p){
-            return map[p.getX()][p.getY()] == BlockType.GROUND;
+            return map[p.getY()][p.getX()] == BlockType.GROUND;
         }
         
         private boolean willPostponeSpawn(Point from,Point p){
@@ -162,7 +162,7 @@ public class MyPlayer extends Player {
                         log("found fire in "+nei+", agent"+agent.getId()+" is in charge!");
                         fires.put(nei, agent.getId());
                     }
-                    map[nei.getX()][nei.getY()] = agent.getAdjBlockType(dir);
+                    map[nei.getY()][nei.getX()] = agent.getAdjBlockType(dir);
                 }
             }
             
@@ -178,10 +178,12 @@ public class MyPlayer extends Player {
                     String c = "?";
                     if (map[i][j]==BlockType.GROUND)
                         c = ".";
-                    else if (map[i][j]==BlockType.RIVER || map[i][j]==BlockType.WALL)
-                        c = "X";
+                    else if (map[i][j]==BlockType.RIVER)
+                        c = "R";
+                    else if (map[i][j]==BlockType.WALL)
+                        c = "W";
                     for (Agent agent : getAgents())
-                        if (agent.getLocation().equals(new Point(i,j)))
+                        if (agent.getLocation().equals(new Point(j,i)))
                             c = ""+agent.getId();
                     logn(c);
                 }
@@ -209,7 +211,7 @@ public class MyPlayer extends Player {
         private Direction findShortestPath(Point from,Point to,SearchMode mode){
             Point par[][] = new Point[getWorld().getMapHeight()][getWorld().getMapWidth()];
             Queue<Point> q= new ArrayBlockingQueue<Point>(getWorld().getMapHeight()*getWorld().getMapWidth());
-            par[from.getX()][from.getY()] = from;
+            par[from.getY()][from.getX()] = from;
             q.add(from);
             while (!q.isEmpty()){
                 Point p = q.poll();
@@ -217,7 +219,7 @@ public class MyPlayer extends Player {
                     break;
                 for (Direction dir : Direction.values()){
                     Point nei = p.applyDirection(dir);
-                    if (!outOfMap(nei) && par[nei.getX()][nei.getY()] == null && !willPostponeSpawn(from,nei))
+                    if (!outOfMap(nei) && par[nei.getY()][nei.getX()] == null && !willPostponeSpawn(from,nei))
                         if ((mode == SearchMode.EXPLORED_ONLY && 
                                 !unexplored(nei) && isGround(nei))||
                             (mode == SearchMode.UNEXPLORED_AND_NEIBOUR &&
@@ -225,7 +227,7 @@ public class MyPlayer extends Player {
                             ((mode == SearchMode.EXPLORED_UNEXPLORED || mode == SearchMode.SET_REACHABILITY) &&
                                 (unexplored(nei) || isGround(nei)))
                            ){
-                            par[nei.getX()][nei.getY()] = p;
+                            par[nei.getY()][nei.getX()] = p;
                             q.add(nei);
                         }
                 }
@@ -234,15 +236,15 @@ public class MyPlayer extends Player {
             if (mode == SearchMode.SET_REACHABILITY){
                 for (int i=0;i<getWorld().getMapHeight();i++)
                     for (int j=0;j<getWorld().getMapWidth();j++)
-                        if (unexplored(i,j) && par[i][j] == null)
+                        if (unexplored(j,i) && par[i][j] == null)
                             map[i][j] = BlockType.WALL;
                 return null;
             }
             
             Point temp = to;
-            while (par[temp.getX()][temp.getY()] != null && par[temp.getX()][temp.getY()] != from )
-                temp = par[temp.getX()][temp.getY()];
-            if (par[temp.getX()][temp.getY()] == null)
+            while (par[temp.getY()][temp.getX()] != null && par[temp.getY()][temp.getX()] != from )
+                temp = par[temp.getY()][temp.getX()];
+            if (par[temp.getY()][temp.getX()] == null)
                 return null;
             return getDirectionToNeib(from,temp);
             
@@ -296,7 +298,7 @@ public class MyPlayer extends Player {
             //age alanam target nadasht dige random
             for (Integer id : getAgentIds()){
                 if (blockTarget[id] == null)
-                    blockTarget[id] = new Point(rand.nextInt(getWorld().getMapHeight()), rand.nextInt(getWorld().getMapWidth()));
+                    blockTarget[id] = new Point(rand.nextInt(getWorld().getMapWidth()), rand.nextInt(getWorld().getMapHeight()));
             }
         }
         
@@ -310,7 +312,7 @@ public class MyPlayer extends Player {
         private Point findClosestUnreservedUnexploredBlock(Point from){
             boolean marked[][] = new boolean[getWorld().getMapHeight()][getWorld().getMapWidth()];
             Queue<Point> q= new ArrayBlockingQueue<Point>(getWorld().getMapHeight()*getWorld().getMapWidth());
-            marked[from.getX()][from.getY()] = true;
+            marked[from.getY()][from.getX()] = true;
             q.add(from);
             while (!q.isEmpty()){
                 Point p = q.poll();
@@ -318,8 +320,8 @@ public class MyPlayer extends Player {
                     return p;
                 for (Direction dir : Direction.values()){
                     Point nei = p.applyDirection(dir);
-                    if (!outOfMap(nei) && !marked[nei.getX()][nei.getY()] && !willPostponeSpawn(from,nei)){
-                        marked[nei.getX()][nei.getY()] = true;
+                    if (!outOfMap(nei) && !marked[nei.getY()][nei.getX()] && !willPostponeSpawn(from,nei)){
+                        marked[nei.getY()][nei.getX()] = true;
                         q.add(nei);
                     }
                 }
@@ -329,7 +331,7 @@ public class MyPlayer extends Player {
         
         
         private void move(Agent agent,Direction dir){
-            //tedade null ha ro ham beshmar!
+            if (agent.getId()!=1)
             agent.doMove(dir);
         }
         
@@ -358,6 +360,7 @@ public class MyPlayer extends Player {
         
 
 	public void step() {
+                log("cycle: "+cycle);
                 if (cycle == 0)
                     init();
 		cycle++;
@@ -371,6 +374,8 @@ public class MyPlayer extends Player {
                 handleFireTargets();
                 updateBlockTargets();
                 setMoves();
+                
+                
                 
                 
                 
