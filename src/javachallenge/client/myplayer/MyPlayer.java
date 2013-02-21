@@ -22,12 +22,14 @@ public class MyPlayer extends Player {
 	Map<Point,Integer> fires = new TreeMap<Point,Integer>() ;
         Set<Point> handledFires = new TreeSet<Point>();
         Map<Integer,Point> fireTarget = new TreeMap<>();
+        Point[] blockTarget = new Point[6];
         BlockType[][] map;
         
         
         private enum SearchMode{
             EXPLORED_ONLY,
-            UNEXPLORED_AND_NEIBOUR
+            UNEXPLORED_AND_NEIBOUR,
+            EXPLORED_UNEXPLORED
         }
         
 	public MyPlayer(World world) {
@@ -39,10 +41,15 @@ public class MyPlayer extends Player {
             System.out.println("Map width: "+getWorld().getMapWidth());
             System.out.println("Spawn location: "+getWorld().getSpawnLocation());
             map = new BlockType[getWorld().getMapHeight()][getWorld().getMapWidth()];
+            map[getWorld().getSpawnLocation().getY()][getWorld().getSpawnLocation().getX()] = BlockType.GROUND; //aya?
         }
         
         private boolean unexplored(Point p){
             return map[p.getY()][p.getX()] == null;
+        }
+        
+        private boolean unexplored(int y,int x){
+            return map[y][x] == null;
         }
         
         private boolean outOfMap(Point p){
@@ -73,6 +80,8 @@ public class MyPlayer extends Player {
             return null;
         }
         
+        
+        
         private void updateMap(){
             for (Agent agent : getAgents()){
                 if (fires.containsKey(agent.getLocation())){
@@ -90,6 +99,7 @@ public class MyPlayer extends Player {
             }
             
             //hala inja ghesmathayi ke moshakashe gheire ghabele dasrese ro ba dfs/bfs hazf mikonim
+            findShortestPath(getWorld().getSpawnLocation(), null, SearchMode.EXPLORED_UNEXPLORED);
             
         }
         
@@ -120,12 +130,22 @@ public class MyPlayer extends Player {
                         if ((mode == SearchMode.EXPLORED_ONLY && 
                                 !unexplored(nei) && isGround(nei))||
                             (mode == SearchMode.UNEXPLORED_AND_NEIBOUR &&
-                                (unexplored(nei) || (p == from && isGround(nei))))
+                                (unexplored(nei) || (p == from && isGround(nei))))||
+                            (mode == SearchMode.EXPLORED_UNEXPLORED &&
+                                (unexplored(nei) || isGround(nei)))
                            ){
                             par[nei.getY()][nei.getX()] = p;
                             q.add(nei);
                         }
                 }
+            }
+            
+            if (mode == SearchMode.EXPLORED_UNEXPLORED){
+                for (int i=0;i<getWorld().getMapHeight();i++)
+                    for (int j=0;j<getWorld().getMapWidth();j++)
+                        if (unexplored(i,j) && par[i][j] == null)
+                            map[i][j] = BlockType.WALL;
+                return null;
             }
             
             Point temp = to;
@@ -136,19 +156,39 @@ public class MyPlayer extends Player {
             return getDirectionToNeib(from,temp);
             
         }
+        
+        private void updateBlockTargets(){
+            if (!unexplored(blockTarget[0])){ //fullfill
+                
+            }
+            if (!unexplored(blockTarget[1])){ //center
+                
+            }
+            if (!unexplored(blockTarget[2])){ //top right
+                
+            }
+            if (!unexplored(blockTarget[3])){ //top left
+                
+            }
+            if (!unexplored(blockTarget[4])){ //down left
+                
+            }
+            if (!unexplored(blockTarget[5])){ //down right
+                
+            }
+        }
 
 	public void step() {
                 if (cycle == 0)
                     init();
-                if (cycle<18)
-                    for (int id: getAgentIds())
-                        System.out.println(id);
 		cycle++;
                 
                 
                 
                 updateMap();
                 handleFireTargets();
+                updateBlockTargets();
+                
                 
                 
                 /*Random rand = new Random();
