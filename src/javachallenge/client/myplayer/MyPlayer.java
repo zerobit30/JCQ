@@ -1,5 +1,7 @@
 package javachallenge.client.myplayer;
 
+import com.sun.media.sound.DirectAudioDeviceProvider;
+import com.sun.org.apache.bcel.internal.generic.AALOAD;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,6 +30,9 @@ public class MyPlayer extends Player {
         Map<Integer,Point> fireTarget = new HashMap<>();
         Point[] blockTarget = new Point[6];
         BlockType[][] map;
+        Random rand = new Random();
+        Point[] lastPos = {new Point(0,0),new Point(0,0),new Point(0,0),new Point(0,0),new Point(0,0),new Point(0,0)};
+        int[] lastestNoMoves = new int[6];
         
         
         private enum SearchMode{
@@ -36,6 +41,37 @@ public class MyPlayer extends Player {
             EXPLORED_UNEXPLORED,
             SET_REACHABILITY
         }
+        
+        private enum Strategy{
+            UP_RIGHT,
+            UP_LEFT,
+            DOWN_LEFT,
+            DOWN_RIGHT,
+            CENTER,
+            FULLFILL
+        }
+        
+        Direction[][] dirToGoOnBorder = {
+            {Direction.SOUTHWEST,Direction.SOUTH},
+            {Direction.SOUTHEAST,Direction.SOUTH},
+            {Direction.NORTH,Direction.NORTHEAST},
+            {Direction.SOUTH,Direction.NORTHWEST}
+        };
+        Direction[][] dirToGoNormal = {
+            {Direction.NORTHWEST,Direction.SOUTHEAST},
+            {Direction.NORTHEAST,Direction.SOUTHWEST},
+            {Direction.NORTHWEST,Direction.SOUTHEAST},
+            {Direction.NORTHEAST,Direction.SOUTHWEST}
+        };
+        int[] currentLine = new int[5];
+        Point[] firstBlock;
+        int[] lastBlock = {
+            2,
+            3,
+            0,
+            1
+        };
+        
         
 	public MyPlayer(World world) {
 		super(world);
@@ -56,15 +92,16 @@ public class MyPlayer extends Player {
             map = new BlockType[getWorld().getMapHeight()][getWorld().getMapWidth()];
             map[getWorld().getSpawnLocation().getX()][getWorld().getSpawnLocation().getY()] = BlockType.GROUND; //aya?
             
-            blockTarget[0]=new Point(getWorld().getMapHeight()/2,getWorld().getMapWidth()/2); //alaki
+            firstBlock[0] = new Point(0,getWorld().getMapWidth()-1);
+            firstBlock[1] = new Point(0,0);
+            firstBlock[2] = new Point(getWorld().getMapHeight()-1,0);
+            firstBlock[3] = new Point(getWorld().getMapHeight()-1,getWorld().getMapWidth()-1);
+            firstBlock[4] = new Point(getWorld().getMapHeight()/2,getWorld().getMapWidth()/2);
             
-            blockTarget[1]=new Point(getWorld().getMapHeight()/2,getWorld().getMapWidth()/2);
-            blockTarget[2]=new Point(0,getWorld().getMapWidth()-1);
-            //blockTarget[3]=new Point(0,0);
-            blockTarget[3]=new Point(getWorld().getMapHeight()/2+5,getWorld().getMapWidth()/2+5); //alaki
-            blockTarget[4]=new Point(getWorld().getMapHeight()-1,0);
-            blockTarget[5]=new Point(getWorld().getMapHeight()-1,getWorld().getMapWidth()-1);
+            for (int i=0;i<5;i++)
+                blockTarget[i] = firstBlock[i];
             
+           
         }
         
         private boolean unexplored(Point p){
@@ -107,6 +144,10 @@ public class MyPlayer extends Player {
         
         private void updateMap(){
             for (Agent agent : getAgents()){
+                if (agent.getLocation().equals(lastPos[agent.getId()]))
+                    lastestNoMoves[agent.getId()]++;
+                else 
+                    lastestNoMoves[agent.getId()]/=2;
                 if (fires.containsKey(agent.getLocation())){
                     log("agent "+agent.getId()+" is in "+agent.getLocation()+", so no fire now!");
                     fires.remove(agent.getLocation());
@@ -151,12 +192,16 @@ public class MyPlayer extends Player {
         private void handleFireTargets(){
             for (Agent agent : getAgents()){
                 Point target = fireTarget.get(agent.getId());
-                if (target != null && !fires.containsKey(target))
+                if (target != null && !fires.containsKey(target)){
+                    log("removing fire target "+target+" from agent "+agent.getId());
                     fireTarget.remove(agent.getId());
+                }
             }
             for (Point fire : fires.keySet()){
-               if (fireTarget.get(fires.get(fire)) == null)
+               if (fireTarget.get(fires.get(fire)) == null){
+                   log("setting new fire target for agent "+fires.get(fire)+", "+fire);
                    fireTarget.put(fires.get(fire), fire);
+               }
             }
         }
         
@@ -203,23 +248,78 @@ public class MyPlayer extends Player {
         }
         
         private void updateBlockTargets(){
+            Point target;
             
-            while (!unexplored(blockTarget[1])){ //center
-                
+            
+            //in baraye 4 gooshe
+            for (int i=0;i<=3;i++){
+                target = blockTarget[i];
+                while (target != null && !unexplored(target)){
+                    if (target.equals(firstBlock[lastBlock[i]])){
+                        target = null;
+                        break;
+                    }
+                    if (outOfMap(target.applyDirection(dirToGoNormal[i][currentLine[i]%2]))){
+                        target = target.applyDirection(dirToGoOnBorder[i][currentLine[i]%2]);
+                        currentLine[i]++;
+                    }else
+                        target = target.applyDirection(dirToGoNormal[i][currentLine[i]%2]);
+                }
+                blockTarget[i] = target;
             }
-            while (!unexplored(blockTarget[2])){ //top right
-                
+            
+            //in baraye center
+            //hala kholase ye joori ...
+            
+            //baraye 5
+            if (!unexplored(blockTarget[5]))
+                blockTarget[5] = null;
+            
+            //hala baraye har bi targeti 
+            for (Integer id : getAgentIds()){
+                if (blockTarget[id] == null){
+                    logn("agent "+id+" has no strategic block taget, fidning closest unexplored block... ");
+                    blockTarget[id] = findClosestUnreservedUnexploredBlock(getAgentById(id).getLocation());
+                    log(""+blockTarget[id]);
+                }else
+                    log("agent "+id+ " strategic target: "+blockTarget[id]);
             }
-            while (!unexplored(blockTarget[3])){ //top left
-                
-            }
-            while (!unexplored(blockTarget[4])){ //down left
-                
-            }
-            while (!unexplored(blockTarget[5])){ //down right
-                
+            
+            
+            //age alanam target nadasht dige random
+            for (Integer id : getAgentIds()){
+                if (blockTarget[id] == null)
+                    blockTarget[id] = new Point(rand.nextInt(getWorld().getMapHeight()), rand.nextInt(getWorld().getMapWidth()));
             }
         }
+        
+        boolean reserved(Point p){
+            for (int i=0;i<6;i++)
+                if (p.equals(blockTarget[i]))
+                    return true;
+            return false;
+        }
+        
+        private Point findClosestUnreservedUnexploredBlock(Point from){
+            boolean marked[][] = new boolean[getWorld().getMapHeight()][getWorld().getMapWidth()];
+            Queue<Point> q= new ArrayBlockingQueue<Point>(getWorld().getMapHeight()*getWorld().getMapWidth());
+            marked[from.getX()][from.getY()] = true;
+            q.add(from);
+            while (!q.isEmpty()){
+                Point p = q.poll();
+                if (unexplored(p) && !reserved(p))
+                    return p;
+                for (Direction dir : Direction.values()){
+                    Point nei = p.applyDirection(dir);
+                    if (!outOfMap(nei) && !marked[nei.getX()][nei.getY()] && !willPostponeSpawn(from,nei)){
+                        marked[nei.getX()][nei.getY()] = true;
+                        q.add(nei);
+                    }
+                }
+            }
+            return null;
+        }
+        
         
         private void move(Agent agent,Direction dir){
             //tedade null ha ro ham beshmar!
@@ -228,13 +328,22 @@ public class MyPlayer extends Player {
         
         private void setMoves(){
             for (Agent agent : getAgents()){
-                if (fireTarget.get(agent.getId()) != null)
+                if (fireTarget.get(agent.getId()) != null){
+                    log("agent "+agent.getId()+" will go for FIRE on "+fireTarget.get(agent.getId()));
                     move(agent,findShortestPath(agent.getLocation(), fireTarget.get(agent.getId()), SearchMode.EXPLORED_ONLY));
-                else{
-                    System.out.println(agent.getId());
+                }else{
+                    log("agent "+agent.getId()+" will go for BLOCK on "+blockTarget[agent.getId()]);
                     Direction dir = findShortestPath(agent.getLocation(), blockTarget[agent.getId()], SearchMode.UNEXPLORED_AND_NEIBOUR);
-                    if (dir == null)
+                    if (dir == null){
+                        log("no path using only unexplored blocks");
                         dir = findShortestPath(agent.getLocation(), blockTarget[agent.getId()], SearchMode.EXPLORED_UNEXPLORED);
+                    }
+                    
+                    if (lastestNoMoves[agent.getId()]>=10){
+                        log ("agent "+agent.getId()+" has stuck for more than 10 cycles, choosing random direction");
+                        dir = Direction.values()[rand.nextInt(6)];
+                    }
+                    
                     move(agent,dir);
                 }   
             }
